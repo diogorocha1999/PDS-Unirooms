@@ -1,0 +1,137 @@
+#!/usr/bin/env node
+require('dotenv').config()
+
+const http = require('http');
+const bcrypt = require('bcryptjs');
+const app = require('../app');
+const { missingDepositJob, missingMonthlyFeeJob, activeRentalsJob } = require('../utils/cronScripts');
+
+// Database connection and initialization
+const db = require('../models');
+
+const Role = db.role;
+const User = db.user;
+
+if (process.env.NODE_ENV.trim() === 'development') {
+
+  db.sequelize.sync({ force: true }).then(async () => {
+    console.log('Drop and Resync Db - Finished');
+    await initial();
+    console.log('DB Staging - Finished');
+  });
+} else {
+
+  db.sequelize.sync({ force: false }).then(async () => {
+    console.log('DB soft update - Finished');
+    await initial();
+    console.log('DB Staging - Finished');
+  });
+}
+
+// Cron Jobs
+missingDepositJob.start();
+missingMonthlyFeeJob.start();
+activeRentalsJob.start();
+
+async function initial() {
+  await Role.findOrCreate({
+    where: { roleId: 1 },
+    defaults: {
+      roleId: 1,
+      name: 'user',
+    }
+  });
+
+  await Role.findOrCreate({
+    where: { roleId: 2 },
+    defaults: {
+      roleId: 2,
+      name: 'admin',
+    }
+  });
+
+  await Role.findOrCreate({
+    where: { roleId: 3 },
+    defaults: {
+      roleId: 3,
+      name: 'seller',
+    }
+  });
+
+  await Role.findOrCreate({
+    where: { roleId: 4 },
+    defaults: {
+      roleId: 4,
+      name: 'student',
+    }
+  });
+
+  let spassword = (Math.random() + 1).toString(36).substring(2);
+
+  await User.findOrCreate({
+    where: { userId: 1 },
+    defaults: {
+      userId: 1,
+      username: 'system',
+      email: 'system@localhost.local',
+      password: bcrypt.hashSync(spassword, 8),
+    }
+  });
+}
+
+// Normalize a port into a number, string, or false.
+function normalizePort(val) {
+  const port = parseInt(val, 10);
+
+  if (Number.isNaN(port)) {
+    // named pipe
+    return val;
+  }
+
+  if (port >= 0) {
+    // port number
+    return port;
+  }
+
+  return false;
+}
+
+// Get port from environment and store in Express.
+const port = normalizePort(process.env.PORT || '3000');
+app.set('port', port);
+
+// Create the HTTP server
+const server = http.createServer(app);
+
+function onError(error) {
+  if (error.syscall !== 'listen') {
+    throw error;
+  }
+
+  const bind = typeof port === 'string' ? `Pipe ${port}` : `Port ${port}`;
+
+  // handle specific listen errors with friendly messages
+  switch (error.code) {
+    case 'EACCES':
+      console.error(`${bind} requires elevated privileges`); // eslint-disable-line no-console
+      process.exit(1);
+      break;
+    case 'EADDRINUSE':
+      console.error(`${bind} is already in use`); // eslint-disable-line no-console
+      process.exit(1);
+      break;
+    default:
+      throw error;
+  }
+}
+
+function onListening() {
+  const addr = server.address();
+  const bind = typeof addr === 'string' ? `pipe ${addr}` : `port ${addr.port}`;
+  console.log(`Listening on ${bind}`); // eslint-disable-line no-console
+}
+
+// Listen on provided port, on all network interfaces.
+server.listen(port);
+server.on('error', onError);
+server.on('listening', onListening);

@@ -1,0 +1,21 @@
+{
+  "testEnvironment": "node",
+  "coveragePathIgnorePatterns": ["/node_modules/"],
+  "globalSetup": "./src/config/jestGlobalSetup.js",
+  "globalTeardown": "./src/config/jestGlobalTeardown.js",
+  "reporters": [
+    "default",
+    [
+      "jest-stare",
+      {
+        "resultDir": "test-reports/results",
+        "reportTitle": "Test results",
+        "additionalResultsProcessors": ["jest-junit"],
+        "coverageLink": "../coverage/lcov-report/index.html",
+        "jestStareConfigJson": "jest-stare.json",
+        "jestGlobalConfigJson": "jest-config.json"
+      }
+    ]
+  ],
+  "verbose": true
+}
